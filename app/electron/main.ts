@@ -1,8 +1,9 @@
+import { Octokit } from '@octokit/core';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { app, BrowserWindow, ipcMain, Menu, MenuItem, screen } from 'electron';
 import { IpcMainEvent, MenuItemConstructorOptions } from 'electron/main';
 import log from 'electron-log';
-import { autoUpdater } from 'electron-updater';
+import Store from 'electron-store';
 import { i18n as I18n } from 'i18next';
 import open from 'open';
 import path from 'path';
@@ -10,6 +11,8 @@ import url from 'url';
 import yargs from 'yargs';
 import i18n from './i18next.config';
 
+const appVersion = app.getVersion();
+const store = new Store();
 const args = yargs
   .option('headless', {
     describe: 'Open Headlamp in the default web browser instead of its app window',
@@ -282,11 +285,50 @@ function startElecron() {
       width,
       height,
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: `${__dirname}/preload.js`,
       },
     });
     mainWindow.loadURL(startUrl);
+
+    mainWindow.webContents.on('dom-ready', () => {
+      const octokit = new Octokit();
+
+      async function fetchRelease() {
+        let githubReleaseURL = `GET /repos/{owner}/{repo}/releases/latest`;
+        const response = await octokit.request(githubReleaseURL, {
+          owner: 'kinvolk',
+          repo: 'headlamp',
+        });
+        if (response.data.name !== appVersion) {
+          mainWindow.webContents.send('update_available', {
+            downloadURL: response.data.html_url,
+          });
+        }
+        /*
+  check if there is already a version in store if it exists don't store the current version
+  this check will help us later in determining whether we are on the latest release or not
+  */
+        const storedAppVersion = store.get('app_version');
+        if (!storedAppVersion) {
+          store.set('app_version', appVersion);
+        } else if (storedAppVersion !== appVersion) {
+          // get the release notes for the version with which the app was built with
+          let githubReleaseURL = `GET /repos/{owner}/{repo}/releases/tags/${appVersion}`;
+          const response = await octokit.request(githubReleaseURL, {
+            owner: 'kinvolk',
+            repo: 'headlamp',
+          });
+          mainWindow.webContents.send('show_release_notes', { releaseNotes: response.data.body });
+          // set the store version to latest so that we don't show release notes on
+          // every start of app
+          store.set(appVersion);
+        }
+      }
+      fetchRelease();
+    });
+
     mainWindow.on('closed', () => {
       mainWindow = null;
     });
@@ -301,37 +343,11 @@ function startElecron() {
       }
     });
 
-    autoUpdater.checkForUpdatesAndNotify();
-
     if (!isDev) {
       serverProcess = startServer();
       attachServerEventHandlers(serverProcess);
     }
   }
-  autoUpdater.autoDownload = true;
-
-  function sendStatusToWindow(text: string) {
-    log.info(`Sending status to window: ${text}`);
-    if (mainWindow) {
-      mainWindow.webContents.send('message', text);
-    }
-  }
-
-  autoUpdater.on('update-not-available', () => {
-    sendStatusToWindow('Update not available.');
-  });
-
-  autoUpdater.on('checking-for-update', () => {
-    sendStatusToWindow('Checking for update...');
-  });
-
-  autoUpdater.on('update-available', () => {
-    sendStatusToWindow('Update is available');
-  });
-
-  autoUpdater.on('update-downloaded', () => {
-    sendStatusToWindow('Update downloaded');
-  });
 
   if (disableGPU) {
     log.info('Disabling GPU hardware acceleration.');

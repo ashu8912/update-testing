@@ -4,7 +4,7 @@ import logoutIcon from '@iconify/icons-mdi/logout';
 import darkIcon from '@iconify/icons-mdi/weather-night';
 import lightIcon from '@iconify/icons-mdi/weather-sunny';
 import { Icon } from '@iconify/react';
-import { Box } from '@material-ui/core';
+import { Box, Button } from '@material-ui/core';
 import AppBar from '@material-ui/core/AppBar';
 import Container from '@material-ui/core/Container';
 import CssBaseline from '@material-ui/core/CssBaseline';
@@ -14,6 +14,7 @@ import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import Menu from '@material-ui/core/Menu';
 import MenuItem from '@material-ui/core/MenuItem';
+import Snackbar from '@material-ui/core/Snackbar';
 import { makeStyles } from '@material-ui/core/styles';
 import Toolbar from '@material-ui/core/Toolbar';
 import { SnackbarProvider } from 'notistack';
@@ -32,6 +33,7 @@ import {
 import { ClusterTitle } from './components/cluster/Chooser';
 import ActionsNotifier from './components/common/ActionsNotifier';
 import AlertNotification from './components/common/AlertNotification';
+import ReleaseNotesModal from './components/releasenotes';
 import Sidebar, { drawerWidth, NavigationTabs, useSidebarItem } from './components/Sidebar';
 import helpers from './helpers';
 import { useElectronI18n } from './i18n/electronI18n';
@@ -233,9 +235,49 @@ function ThemeChangeButton() {
   );
 }
 
+function UpdatePopup() {
+  const [show, setShow] = React.useState(false);
+  const [updateDownloadURL, setUpdateDownloadURL] = React.useState<string | undefined>();
+  const { desktopApi } = window;
+  React.useEffect(() => {
+    desktopApi &&
+      desktopApi.receive('update_available', (data: { downloadURL: string }) => {
+        setShow(true);
+        setUpdateDownloadURL(data.downloadURL);
+      });
+  }, []);
+
+  return (
+    <Snackbar
+      anchorOrigin={{
+        vertical: 'bottom',
+        horizontal: 'right',
+      }}
+      open={show}
+      autoHideDuration={100000}
+      ContentProps={{
+        'aria-describedby': 'updatePopup',
+      }}
+      message={`There is an available update`}
+      action={
+        <React.Fragment>
+          <Button color="secondary" href={`${updateDownloadURL}`} target="_blank">
+            More
+          </Button>
+          <Button color="primary" onClick={() => setShow(false)}>
+            Close
+          </Button>
+        </React.Fragment>
+      }
+    />
+  );
+}
+
 function AppContainer() {
+  const { desktopApi } = window;
   const isSidebarOpen = useTypedSelector(state => state.ui.sidebar.isSidebarOpen);
   const classes = useStyle({ isSidebarOpen });
+  const [releaseNotes, setReleaseNotes] = React.useState<string>();
   const Router = ({ children }: React.PropsWithChildren<{}>) =>
     helpers.isElectron() ? (
       <HashRouter>{children}</HashRouter>
@@ -245,6 +287,14 @@ function AppContainer() {
 
   localStorage.setItem('sidebar', JSON.stringify({ shrink: isSidebarOpen }));
 
+  React.useEffect(() => {
+    if (desktopApi) {
+      desktopApi.receive('show_release_notes', (data: { releaseNotes: string }) => {
+        setReleaseNotes(data.releaseNotes);
+      });
+    }
+  }, []);
+
   return (
     <SnackbarProvider
       anchorOrigin={{
@@ -252,6 +302,8 @@ function AppContainer() {
         horizontal: 'left',
       }}
     >
+      <UpdatePopup />
+      {releaseNotes && <ReleaseNotesModal releaseNotes={releaseNotes} />}
       <Router>
         <Link href="#main" className={classes.visuallyHidden}>
           Skip to main content
