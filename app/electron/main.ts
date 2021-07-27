@@ -295,12 +295,12 @@ function startElecron() {
     mainWindow.webContents.on('dom-ready', () => {
       const octokit = new Octokit();
 
-      async function fetchLatestRelease() {
-        const response = await octokit.request('GET /repos/{owner}/{repo}/releases/latest', {
+      async function fetchRelease() {
+        let githubReleaseURL = `GET /repos/{owner}/{repo}/releases/latest`;
+        const response = await octokit.request(githubReleaseURL, {
           owner: 'kinvolk',
           repo: 'headlamp',
         });
-
         if (response.data.name !== appVersion) {
           mainWindow.webContents.send('update_available', {
             downloadURL: response.data.html_url,
@@ -314,13 +314,19 @@ function startElecron() {
         if (!storedAppVersion) {
           store.set('app_version', appVersion);
         } else if (storedAppVersion !== appVersion) {
+          // get the release notes for the version with which the app was built with
+          let githubReleaseURL = `GET /repos/{owner}/{repo}/releases/tags/${appVersion}`;
+          const response = await octokit.request(githubReleaseURL, {
+            owner: 'kinvolk',
+            repo: 'headlamp',
+          });
           mainWindow.webContents.send('show_release_notes', { releaseNotes: response.data.body });
           // set the store version to latest so that we don't show release notes on
           // every start of app
           store.set(appVersion);
         }
       }
-      fetchLatestRelease();
+      fetchRelease();
     });
 
     mainWindow.on('closed', () => {
