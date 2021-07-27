@@ -80,8 +80,8 @@
     ],
     "publish": {
       "provider": "github",
-      "repo": "headlamp",
-      "owner": "kinvolk"
+      "repo": "update-testing",
+      "owner": "ashu8912"
     },
     "extends": null
   },
