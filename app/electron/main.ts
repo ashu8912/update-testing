@@ -311,19 +311,20 @@ function startElecron() {
   this check will help us later in determining whether we are on the latest release or not
   */
         const storedAppVersion = store.get('app_version');
+        console.log(storedAppVersion)
         if (!storedAppVersion) {
           store.set('app_version', appVersion);
         } else if (storedAppVersion !== appVersion) {
           // get the release notes for the version with which the app was built with
-          let githubReleaseURL = `GET /repos/{owner}/{repo}/releases/tags/${appVersion}`;
-          const response = await octokit.request(githubReleaseURL, {
-            owner: 'kinvolk',
-            repo: 'headlamp',
+          let githubReleaseURL = `GET /repos/{owner}/{repo}/releases/tags/v${appVersion}`;
+          let releaseTagResponse = await octokit.request(githubReleaseURL, {
+            owner: 'ashu8912',
+            repo: 'update-testing'
           });
-          mainWindow.webContents.send('show_release_notes', { releaseNotes: response.data.body });
+          mainWindow.webContents.send('show_release_notes', { releaseNotes: releaseTagResponse.data.body });
           // set the store version to latest so that we don't show release notes on
           // every start of app
-          store.set(appVersion);
+          store.set('app_version',appVersion);
         }
       }
       fetchRelease();
