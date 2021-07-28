@@ -301,6 +301,7 @@ function startElecron() {
           owner: 'ashu8912',
           repo: 'update-testing',
         });
+        console.log(response.data)
         if (response.data.name !== appVersion) {
           mainWindow.webContents.send('update_available', {
             downloadURL: response.data.html_url,
@@ -321,6 +322,7 @@ function startElecron() {
             owner: 'ashu8912',
             repo: 'update-testing'
           });
+          console.log("tag ", releaseTagResponse)
           mainWindow.webContents.send('show_release_notes', { releaseNotes: releaseTagResponse.data.body });
           // set the store version to latest so that we don't show release notes on
           // every start of app
