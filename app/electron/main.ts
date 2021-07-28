@@ -298,8 +298,8 @@ function startElecron() {
       async function fetchRelease() {
         let githubReleaseURL = `GET /repos/{owner}/{repo}/releases/latest`;
         const response = await octokit.request(githubReleaseURL, {
-          owner: 'kinvolk',
-          repo: 'headlamp',
+          owner: 'ashu8912',
+          repo: 'update-testing',
         });
         if (response.data.name !== appVersion) {
           mainWindow.webContents.send('update_available', {
